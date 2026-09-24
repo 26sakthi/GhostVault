@@ -1,0 +1,66 @@
+#!/bin/sh
+"true" '''\'
+# sh launcher: run this same file with the first working Python 3 (skips the Windows Store stub).
+for p in python3 python; do
+  if command -v "$p" >/dev/null 2>&1 && "$p" -c "import sys; sys.exit(sys.version_info < (3, 8))" >/dev/null 2>&1; then
+    exec "$p" "$0" "$@"
+  fi
+done
+echo "vault-cli: Python 3 not found" >&2
+exit 1
+'''
+# Push a secret from stdin:  cat secret.txt | ./vault-cli [--ttl 3600] [--views 1]
+import argparse
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(prog="vault-cli", description="Read a secret from stdin and print a one-time link.")
+    p.add_argument("--ttl", type=int, default=3600, help="seconds until expiry (default 3600)")
+    p.add_argument("--views", type=int, default=1, help="number of allowed views (default 1)")
+    p.add_argument("--server", default=os.getenv("VAULT_SERVER", "http://localhost:3000"))
+    p.add_argument("--json", action="store_true", help="print the full JSON response")
+    a = p.parse_args()
+
+    if sys.stdin.isatty():
+        print("vault-cli: pipe a secret on stdin, e.g. `cat .env | vault-cli`", file=sys.stderr)
+        return 1
+    try:
+        data = sys.stdin.buffer.read().decode("utf-8")
+    except UnicodeDecodeError:
+        print("vault-cli: stdin is not valid UTF-8", file=sys.stderr)
+        return 1
+    if data.endswith("\n"):
+        data = data[:-1]
+        if data.endswith("\r"):
+            data = data[:-1]
+    if not data.strip():
+        print("vault-cli: empty secret", file=sys.stderr)
+        return 1
+
+    body = json.dumps({"secret": data, "ttl_seconds": a.ttl, "max_views": a.views}).encode()
+    req = urllib.request.Request(
+        a.server.rstrip("/") + "/api/secret",
+        data=body,
+        method="POST",
+        headers={"Content-Type": "application/json", "User-Agent": "vault-cli/1.0"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            out = json.load(r)
+    except urllib.error.HTTPError as e:
+        print(f"vault-cli: HTTP {e.code}: {e.read().decode(errors='replace')}", file=sys.stderr)
+        return 1
+    except urllib.error.URLError as e:
+        print(f"vault-cli: cannot reach server: {e.reason}", file=sys.stderr)
+        return 1
+    print(json.dumps(out, indent=2) if a.json else out["view_url"])
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

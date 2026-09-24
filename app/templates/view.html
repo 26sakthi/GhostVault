@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Secure secret{% endblock %}
+{% block content %}
+<main class="card" data-secret-id="{{ sid }}">
+  <h1>Secure secret</h1>
+  <p class="notice">You have been sent a secure, self-destructing secret.</p>
+  <dl class="meta">
+    <dt>Expires</dt><dd><time id="expires" datetime="{{ expires_at }}">{{ expires_at }}</time></dd>
+    <dt>Views remaining</dt><dd id="views">{{ views_remaining }}</dd>
+  </dl>
+  <button id="reveal" class="danger" type="button">Reveal and Destroy Secret</button>
+  <section id="result" hidden aria-live="polite">
+    <pre id="secret"></pre>
+    <button id="copy" type="button" class="secondary">Copy</button>
+    <p id="status" class="status"></p>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}<script src="/static/js/reveal.js" defer></script>{% endblock %}

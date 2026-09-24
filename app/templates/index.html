@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<main class="card">
+  <h1>Share a secret</h1>
+  <p class="notice">The secret is encrypted and destroyed after it is read or when it expires.</p>
+  <form id="create-form" novalidate>
+    <label for="secret">Secret</label>
+    <textarea id="secret" rows="6" required spellcheck="false" autocomplete="off"
+              placeholder="Paste a password, API key, or .env file"></textarea>
+    <div class="row">
+      <div>
+        <label for="ttl">Expires after</label>
+        <select id="ttl">
+          <option value="300">5 minutes</option>
+          <option value="3600" selected>1 hour</option>
+          <option value="86400">1 day</option>
+          <option value="604800">7 days</option>
+        </select>
+      </div>
+      <div>
+        <label for="views">Views allowed</label>
+        <input id="views" type="number" min="1" max="10" value="1">
+      </div>
+    </div>
+    <button type="submit" class="primary">Create link</button>
+    <p id="error" class="error" role="alert" hidden></p>
+  </form>
+  <section id="result" hidden aria-live="polite">
+    <label for="link">Share this link</label>
+    <div class="copy-row">
+      <input id="link" type="text" readonly>
+      <button id="copy" type="button" class="secondary">Copy</button>
+    </div>
+    <dl class="meta">
+      <dt>Expires</dt><dd id="expires"></dd>
+      <dt>Views remaining</dt><dd id="remaining"></dd>
+    </dl>
+    <button id="another" type="button" class="secondary">Create another</button>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}<script src="/static/js/create.js" defer></script>{% endblock %}
