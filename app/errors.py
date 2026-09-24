@@ -12,6 +12,13 @@ class NotFound(Exception):
     pass
 
 
+class PasswordError(Exception):
+    """Stretch S2: password missing or wrong (401). The secret is not consumed."""
+
+    def __init__(self, message: str):
+        self.message = message
+
+
 def _is_api(request: Request) -> bool:
     return request.url.path.startswith("/api/")
 
@@ -31,6 +38,10 @@ def install(app) -> None:
     @app.exception_handler(NotFound)  # raised only by /api routes
     async def _nf(request: Request, _: NotFound):
         return JSONResponse({"error": NOT_FOUND_MSG}, status_code=404)
+
+    @app.exception_handler(PasswordError)
+    async def _pw(request: Request, exc: PasswordError):
+        return JSONResponse({"error": exc.message}, status_code=401)
 
     @app.exception_handler(RequestValidationError)  # 400 instead of FastAPI's 422
     async def _val(request: Request, exc: RequestValidationError):

@@ -1,0 +1,32 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "vault",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--port", "3000", "--no-access-log"],
+      "port": 3000
+    },
+    {
+      "name": "vault-fingerprint",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--port", "3000", "--no-access-log"],
+      "env": { "VAULT_FINGERPRINT": "1", "VAULT_DB_PATH": "fp-demo.db" },
+      "port": 3000
+    },
+    {
+      "name": "vault-bench-1",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--port", "3000", "--no-access-log", "--log-level", "warning"],
+      "env": { "VAULT_DB_PATH": "bench.db" },
+      "port": 3000
+    },
+    {
+      "name": "vault-bench-4",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--port", "3000", "--workers", "4", "--no-access-log", "--log-level", "warning"],
+      "env": { "VAULT_DB_PATH": "bench.db" },
+      "port": 3000
+    }
+  ]
+}

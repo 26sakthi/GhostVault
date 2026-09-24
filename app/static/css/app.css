@@ -29,6 +29,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }  /* `label { display: block }` etc. would otherwise override it */
 
 body {
   margin: 0;
@@ -102,6 +103,15 @@ pre {
 }
 
 .status { color: var(--muted); }
+.optional { font-weight: 400; color: var(--muted); }
+label.check { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-top: 16px; }
+label.check input { width: auto; margin: 0; }
+#e2e-note { margin: 0 0 12px; }
+#e2e-error { margin: 0 0 12px; }
+.hint { color: var(--muted); font-size: 0.85rem; margin: 6px 0 0; }
+#password + .error { margin: 6px 0 12px; }
+main > #password { margin-bottom: 12px; }
+.fingerprint { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.85rem; word-break: break-all; color: var(--muted); }
 .error { color: var(--danger); margin: 12px 0 0; }
 #another { margin-top: 4px; }
 

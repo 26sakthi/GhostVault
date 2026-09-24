@@ -15,6 +15,16 @@ CREATE TABLE IF NOT EXISTS secrets (
 CREATE INDEX IF NOT EXISTS idx_secrets_expiry ON secrets(expires_at);
 """
 
+# Stretch columns: S2 (password protection) and S3 (end-to-end encryption flag). Added by
+# migration so the core CREATE TABLE stays exactly as in the handout, and existing databases
+# are upgraded in place.
+STRETCH_COLUMNS = {
+    "pw_salt": "BLOB",
+    "pw_hash": "BLOB",
+    "pw_failures": "INTEGER NOT NULL DEFAULT 0",
+    "e2e": "INTEGER NOT NULL DEFAULT 0",
+}
+
 _local = threading.local()
 
 
@@ -45,5 +55,9 @@ def init_db(path: str) -> None:
         if mode.lower() != "wal":
             raise SystemExit(f"could not enable WAL (got {mode})")
         conn.executescript(SCHEMA)
+        existing = {row["name"] for row in conn.execute("PRAGMA table_info(secrets)")}
+        for name, decl in STRETCH_COLUMNS.items():
+            if name not in existing:
+                conn.execute(f"ALTER TABLE secrets ADD COLUMN {name} {decl}")
     finally:
         conn.close()

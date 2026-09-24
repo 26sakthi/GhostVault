@@ -21,6 +21,7 @@ class Settings:
     max_views: int
     max_body_bytes: int
     enable_docs: bool
+    fingerprint: bool
 
 
 def _load_key() -> bytes:
@@ -49,4 +50,5 @@ def get_settings() -> Settings:
         max_views=int(os.getenv("VAULT_MAX_VIEWS", "100")),
         max_body_bytes=int(os.getenv("VAULT_MAX_BODY_BYTES", "131072")),
         enable_docs=os.getenv("VAULT_ENABLE_DOCS", "0") == "1",
+        fingerprint=os.getenv("VAULT_FINGERPRINT", "0") == "1",  # stretch S1, off by default
     )

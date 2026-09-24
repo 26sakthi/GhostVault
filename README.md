@@ -34,7 +34,22 @@ curl -s localhost:3000/view/<id>
 curl -s -X POST localhost:3000/api/secret/<id>/burn
 # -> 200 {"secret":"my-database-password-xyz","views_remaining":0,"burned":true}
 # -> 404 {"error":"Secret not found, expired, or already destroyed."}
+
+# optional password (stretch S2)
+curl -s -X POST localhost:3000/api/secret -H 'Content-Type: application/json' \
+     -d '{"secret":"s3cr3t","password":"correct horse"}'
+curl -s -X POST localhost:3000/api/secret/<id>/burn -H 'Content-Type: application/json' \
+     -d '{"password":"correct horse"}'
+# -> 401 {"error":"Password required."} / {"error":"Incorrect password."}  (no view is used)
+# -> after 5 wrong passwords the secret is destroyed (404)
+
+# optional end-to-end encryption (stretch S3): encrypt client-side, send base64(iv || ciphertext+tag)
+curl -s -X POST localhost:3000/api/secret -H 'Content-Type: application/json' \
+     -d '{"secret":"<base64 client ciphertext>","e2e":true}'
+# share view_url + "#k=<base64url 32-byte key>"; burn returns the client ciphertext plus "e2e": true
 ```
+
+In the browser, tick **End-to-end encrypt in this browser** (needs HTTPS or localhost). The server only receives ciphertext, and the key is placed in the link after `#`, which browsers never send to the server.
 
 ## CLI
 
@@ -42,6 +57,9 @@ curl -s -X POST localhost:3000/api/secret/<id>/burn
 cat secret.txt | ./cli/vault-cli                 # prints the one-time link
 echo "hunter2" | ./cli/vault-cli --ttl 300 --views 1
 ./cli/vault-cli --json < .env                    # full JSON response
+cat .env | ./cli/vault-cli --password            # prompts for a password on the terminal
+cat .env | VAULT_PASSWORD='…' ./cli/vault-cli --password   # for scripts / Git Bash (no prompt)
+cat .env | ./cli/vault-cli --e2e                 # encrypt locally; link includes #k=<key> (needs `cryptography`)
 ```
 It reads stdin, needs no extra packages, and uses `--server` or `VAULT_SERVER` (default `http://localhost:3000`). On Windows cmd/PowerShell use `cli\vault-cli.cmd` or `python cli/vault-cli`.
 
@@ -56,6 +74,16 @@ Set `PY=.venv/Scripts/python` (or your interpreter) and `DB=<path>` if needed. T
 
 **Windows, portable sqlite3 (git-ignored):** download `sqlite-tools-win-x64-*.zip` from https://sqlite.org/download.html, check its SHA3-256 against the value on that page, and extract it to `tools/sqlite/`. Then inspect the DB directly with `tools/sqlite/sqlite3.exe vault.db ".schema secrets"`.
 
+## Benchmark (stretch S4)
+
+```bash
+cd bench && npm install                          # installs autocannon locally (bench/node_modules, git-ignored)
+# start a server on a throwaway DB, e.g.: VAULT_DB_PATH=bench.db uvicorn app.main:app --port 3000 --no-access-log
+node bench.js                                     # view / health / create / burn at 10 and 50 connections
+node bench.js --duration 30 --connections 10,25,50 --burns 5000 --url http://localhost:3000
+```
+It prints a table and checks the handout target (> 1,500 reads/s, p99 < 15 ms). Use a separate `VAULT_DB_PATH`, because the run creates thousands of secrets. Results are in [REPORT.md](REPORT.md) §5.
+
 ## Configuration
 
 | Variable | Default | Notes |
@@ -66,5 +94,6 @@ Set `PY=.venv/Scripts/python` (or your interpreter) and `DB=<path>` if needed. T
 | `VAULT_SWEEP_INTERVAL` | `10` | Seconds between expiry sweeps (5–30). |
 | `VAULT_MAX_SECRET_BYTES` / `VAULT_MAX_TTL` / `VAULT_MAX_VIEWS` / `VAULT_MAX_BODY_BYTES` | 65536 / 604800 / 100 / 131072 | Input limits |
 | `VAULT_ENABLE_DOCS` | `0` | Set `1` to expose `/docs` during development |
+| `VAULT_FINGERPRINT` | `0` | Stretch S1: set `1` to return a SHA-256 `fingerprint` of the secret to the sender at creation (never stored). The recipient's page shows the same hash after reveal so both sides can compare. The CLI prints it to stderr. |
 
-**Deployment:** a single host or container with a persistent local filesystem, and one uvicorn worker recommended. It is not designed for serverless platforms or multiple hosts.
+**Deployment:** a single host or container with a persistent local filesystem, and one uvicorn worker recommended. It is not designed for serverless platforms or multiple hosts. `--workers N` stays *correct* (SQLite serializes writers), but on **Windows** uvicorn's multi-worker mode can stall a worker in a blocking `accept()` for seconds (seen in S4). Use 1 worker on Windows, and multiple workers only on Linux.
