@@ -22,6 +22,12 @@
         <input id="views" type="number" min="1" max="10" value="1">
       </div>
     </div>
+    <label for="password">Password <span class="optional">(optional)</span></label>
+    <input id="password" type="password" autocomplete="new-password"
+           placeholder="Recipient must enter this to reveal">
+    <p class="hint">Share the password separately from the link, never in the same message.</p>
+    <label class="check"><input id="e2e" type="checkbox"> End-to-end encrypt in this browser</label>
+    <p id="e2e-hint" class="hint">The server only ever receives ciphertext; the key travels in the link after <code>#</code>.</p>
     <button type="submit" class="primary">Create link</button>
     <p id="error" class="error" role="alert" hidden></p>
   </form>
@@ -34,9 +40,13 @@
     <dl class="meta">
       <dt>Expires</dt><dd id="expires"></dd>
       <dt>Views remaining</dt><dd id="remaining"></dd>
+      <dt id="fp-label" hidden>Fingerprint</dt><dd id="fp" class="fingerprint" hidden></dd>
     </dl>
     <button id="another" type="button" class="secondary">Create another</button>
   </section>
 </main>
 {% endblock %}
-{% block scripts %}<script src="/static/js/create.js" defer></script>{% endblock %}
+{% block scripts %}
+<script src="/static/js/e2e.js" defer></script>
+<script src="/static/js/create.js" defer></script>
+{% endblock %}

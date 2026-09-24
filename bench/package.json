@@ -1,0 +1,7 @@
+{
+  "name": "vault-bench",
+  "private": true,
+  "description": "Load benchmark for the Ephemeral Secret Vault (stretch S4)",
+  "scripts": { "bench": "node bench.js" },
+  "devDependencies": { "autocannon": "^8.0.0" }
+}

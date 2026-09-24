@@ -1,19 +1,32 @@
 {% extends "base.html" %}
 {% block title %}Secure secret{% endblock %}
 {% block content %}
-<main class="card" data-secret-id="{{ sid }}">
+<main class="card" data-secret-id="{{ sid }}"{% if fingerprint %} data-fingerprint="1"{% endif %}{% if e2e %} data-e2e="1"{% endif %}>
   <h1>Secure secret</h1>
   <p class="notice">You have been sent a secure, self-destructing secret.</p>
   <dl class="meta">
     <dt>Expires</dt><dd><time id="expires" datetime="{{ expires_at }}">{{ expires_at }}</time></dd>
     <dt>Views remaining</dt><dd id="views">{{ views_remaining }}</dd>
   </dl>
+  {% if e2e %}
+  <p id="e2e-note" class="hint">🔐 End-to-end encrypted: it is decrypted in your browser with the key in this link.</p>
+  <p id="e2e-error" class="error" role="alert" hidden></p>
+  {% endif %}
+  {% if protected %}
+  <label for="password">This secret is password-protected</label>
+  <input id="password" type="password" autocomplete="off" placeholder="Enter the password">
+  <p id="pw-error" class="error" role="alert" hidden></p>
+  {% endif %}
   <button id="reveal" class="danger" type="button">Reveal and Destroy Secret</button>
   <section id="result" hidden aria-live="polite">
     <pre id="secret"></pre>
     <button id="copy" type="button" class="secondary">Copy</button>
     <p id="status" class="status"></p>
+    <p id="fingerprint" class="fingerprint" hidden></p>
   </section>
 </main>
 {% endblock %}
-{% block scripts %}<script src="/static/js/reveal.js" defer></script>{% endblock %}
+{% block scripts %}
+<script src="/static/js/e2e.js" defer></script>
+<script src="/static/js/reveal.js" defer></script>
+{% endblock %}

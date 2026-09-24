@@ -11,11 +11,34 @@ exit 1
 '''
 # Push a secret from stdin:  cat secret.txt | ./vault-cli [--ttl 3600] [--views 1]
 import argparse
+import base64
+import getpass
+import hashlib
 import json
 import os
 import sys
 import urllib.error
 import urllib.request
+
+
+def _can_prompt() -> bool:
+    """getpass needs a real terminal; on Windows it would block forever without a console (e.g. mintty)."""
+    if os.name == "nt":
+        return sys.stderr.isatty()
+    try:
+        with open("/dev/tty"):
+            return True
+    except OSError:
+        return False
+
+
+def _e2e_encrypt(plaintext: str):
+    """Stretch S3: same format as the browser (base64(iv || ciphertext+tag), key as #k=<base64url>)."""
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM  # only needed for --e2e
+
+    key, iv = AESGCM.generate_key(bit_length=256), os.urandom(12)
+    sealed = iv + AESGCM(key).encrypt(iv, plaintext.encode("utf-8"), None)
+    return base64.b64encode(sealed).decode(), "k=" + base64.urlsafe_b64encode(key).decode().rstrip("=")
 
 
 def main() -> int:
@@ -24,6 +47,10 @@ def main() -> int:
     p.add_argument("--views", type=int, default=1, help="number of allowed views (default 1)")
     p.add_argument("--server", default=os.getenv("VAULT_SERVER", "http://localhost:3000"))
     p.add_argument("--json", action="store_true", help="print the full JSON response")
+    p.add_argument("--password", action="store_true",
+                   help="protect with a password: prompts on the terminal, or reads $VAULT_PASSWORD")
+    p.add_argument("--e2e", action="store_true",
+                   help="encrypt locally; the server never sees the plaintext (needs the `cryptography` package)")
     a = p.parse_args()
 
     if sys.stdin.isatty():
@@ -42,7 +69,33 @@ def main() -> int:
         print("vault-cli: empty secret", file=sys.stderr)
         return 1
 
-    body = json.dumps({"secret": data, "ttl_seconds": a.ttl, "max_views": a.views}).encode()
+    payload = {"secret": data, "ttl_seconds": a.ttl, "max_views": a.views}
+    if a.password:  # never taken from argv: it would end up in shell history / process lists
+        pw = os.getenv("VAULT_PASSWORD")
+        if pw is None:
+            if not _can_prompt():
+                print("vault-cli: no terminal for the password prompt; set VAULT_PASSWORD", file=sys.stderr)
+                return 1
+            try:
+                pw = getpass.getpass("Password: ")  # reads the terminal, not the piped stdin
+            except (EOFError, OSError):
+                print("vault-cli: no terminal for the password prompt; set VAULT_PASSWORD", file=sys.stderr)
+                return 1
+        if not pw:
+            print("vault-cli: empty password", file=sys.stderr)
+            return 1
+        payload["password"] = pw
+
+    fragment = ""
+    if a.e2e:
+        try:
+            payload["secret"], fragment = _e2e_encrypt(data)
+        except ImportError:
+            print("vault-cli: --e2e needs the `cryptography` package (pip install cryptography)", file=sys.stderr)
+            return 1
+        payload["e2e"] = True
+
+    body = json.dumps(payload).encode()
     req = urllib.request.Request(
         a.server.rstrip("/") + "/api/secret",
         data=body,
@@ -58,7 +111,16 @@ def main() -> int:
     except urllib.error.URLError as e:
         print(f"vault-cli: cannot reach server: {e.reason}", file=sys.stderr)
         return 1
-    print(json.dumps(out, indent=2) if a.json else out["view_url"])
+    if fragment:  # the key goes only into the link; the server never saw it
+        out["view_url"] += "#" + fragment
+        if out.get("fingerprint"):  # server hashed ciphertext; show the plaintext hash the recipient will see
+            out["fingerprint"] = "sha256:" + hashlib.sha256(data.encode("utf-8")).hexdigest()
+    if a.json:
+        print(json.dumps(out, indent=2))
+    else:
+        print(out["view_url"])
+        if out.get("fingerprint"):  # stretch S1; stderr keeps stdout pipe-friendly
+            print(f"fingerprint: {out['fingerprint']}", file=sys.stderr)
     return 0
 
 
